@@ -83,3 +83,10 @@ latex_yticks = join(latex_range, yticks)
 
 
 show_plot = join(figure, plot, show, argsFor=1)
+
+
+
+def linestyles():
+    from itertools import cycle
+    return cycle(["-", ":", "--", "-."])
+
