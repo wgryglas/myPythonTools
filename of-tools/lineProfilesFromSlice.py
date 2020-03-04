@@ -18,7 +18,7 @@ def loadData(path):
     return res
 
 
-def plot(data, dirX, dirY, var, precision, scale, pltDescription):
+def plot(data, dirX, dirY, var, precision, scale, pltDescription, useAutoscaling):
     """
     :param pltDescription: dictionary like object containing "type", "marker" and "linewidth" keys. Where type is
            matplotlib line style, marker is marker style
@@ -39,29 +39,50 @@ def plot(data, dirX, dirY, var, precision, scale, pltDescription):
 
     spacingValues = sorted(np.unique(spacingCoords, return_index=True)[0])
 
-    if len(spacingValues) > 1:
+    totalScale=scale
+
+    if len(spacingValues) > 1 and useAutoscaling:
         # normalize data to make sure profiles will not overlap
         xdelta = spacingValues[1] - spacingValues[0]
-        fmin = min(field)
         fmax = max(field)
-        field = field * (scale * xdelta / 2 / (fmax - fmin))
+        fmin = min(field)
+        totalScale = (scale * xdelta / 2 / (fmax - fmin))
+        field_scaled = field * totalScale
     else:
-        field = field * scale
+        field_scaled = field * scale
 
     for lineCoord in spacingValues:
         lineData = []
+        fieldData = []
         for i, v in enumerate(spacingCoords):
             if v == lineCoord:
-                lineData.append([samplCoords[i], field[i] + v])
+                lineData.append([samplCoords[i], field_scaled[i] + v])
+                fieldData.append(field[i])
+
         lineData = np.array(lineData)
+        fieldData = np.array(fieldData)
 
         sort = np.argsort(lineData[:, 0])
         lineData = lineData[sort, :]
+        fieldData = fieldData[sort]
 
+
+        plt.plot([lineCoord]*lineData.shape[0], lineData[:, 0], "--k")
         plt.plot(lineData[:, 1], lineData[:, 0], pltDescription['type'], marker=pltDescription['marker'], linewidth=pltDescription['linewidth'])
+
+        #Add ref value labels
+        if useAutoscaling:
+            separtion = (lineData[-1,0]-lineData[0, 0]) / 20
+            plt.text(lineCoord, lineData[-1,0] + separtion, "0")
+            plt.text(lineData[-1, 1], lineData[-1, 0]+separtion, "{0:.1f}".format(fieldData[-1]))
 
     if pltDescription['grid']:
         plt.grid()
+
+    plt.axis('equal')
+
+    return totalScale
+
 
 
 def showPlot():
@@ -96,12 +117,12 @@ if __name__ == "__main__":
                              "is very small) might group multiple lines")
 
     parser.add_argument("-t", "--type", type=str, default="-k",
-                        help='''Matplotlib line type, default "-k" is black continuous line, ".k" is black dots, 
+                        help='''Matplotlib line type, default "-k" is black continuous line, ".k" is black dots,
                              " k"(space + k) is no line, see more
                              https://matplotlib.org/2.0.2/api/lines_api.html#matplotlib.lines.Line2D.set_linestyle)''')
 
     parser.add_argument("-m", "--marker", type=str, default=" ",
-                        help='''Matplotlib marker type, default is none. Available types you can find here: 
+                        help='''Matplotlib marker type, default is none. Available types you can find here:
                                 https://matplotlib.org/3.1.3/api/markers_api.html''')
 
     parser.add_argument("-l", "--linewidth", type=int, default=1,
@@ -112,6 +133,9 @@ if __name__ == "__main__":
                              "profiles. By default profiles will be scaled assert non overlpaing, but with this "
                              "parameter user might control it, as it might appear that profiles are not wide enough")
 
+    parser.add_argument("-e", "--extra", type=str,
+                        help="Specify additial file to add to the plot. For this data line properties are fixed, must use the same columns naming as original file, and the same dirs for spacing and line")
+
     parser.add_argument("-g", "--grid", action="store_true",
                         help="Adds grid to plot")
 
@@ -119,9 +143,13 @@ if __name__ == "__main__":
 
     d = loadData(args.path)
     pltSetup = {'type': args.type, 'marker': args.marker, 'linewidth': args.linewidth, 'grid':args.grid}
-    plot(d, args.x, args.y, args.field, args.precision, args.scale, pltSetup)
+    pltScaling = plot(d, args.x, args.y, args.field, args.precision, args.scale, pltSetup, True)
+
+    if args.extra:
+        ed = loadData(args.extra)
+        plot(ed, args.x, args.y, args.field, args.precision, pltScaling, {'type':' k', 'marker':'o', 'linewidth':1, 'grid':False}, False)
 
     if args.output:
-        saveFig(parser.output)
+        saveFig(args.output)
     else:
         showPlot()
