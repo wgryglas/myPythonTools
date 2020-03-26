@@ -145,6 +145,14 @@ def plot(data, dirX, dirY, var, precision, axesConfig, pltDescription, useAutosc
         e = axesConfig['ymax'] if axesConfig['ymax'] is not None else plt.ylim()[1]
         plt.ylim(s, e)
 
+    # mng = plt.get_current_fig_manager()
+    #
+    try:
+        mng = plt.get_current_fig_manager()
+        mng.resize(*mng.window.maxsize())
+    except:
+        print "Can't toggle window maximze"
+
     return totalScale
 
 
